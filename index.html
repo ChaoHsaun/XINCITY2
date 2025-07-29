@@ -1,96 +1,157 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>機車車位抽籤</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>機車車位抽籤系統</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, sans-serif; }
+  </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-6">
-  <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8">
-    <h1 class="text-3xl font-bold text-center mb-6">🏍️ 機車車位抽籤系統</h1>
+<body class="bg-gray-100 min-h-screen flex flex-col lg:flex-row items-start p-6 gap-6">
 
-    <div class="flex justify-center gap-4 mb-6">
-      <button id="drawOneHousehold" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl">第一階段：抽出一個住戶</button>
-      <button id="assignOneSpot" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl" disabled>第二階段：分配一個車位</button>
+  <!-- 左側：操作區 -->
+  <div class="flex-1 w-full max-w-2xl">
+    <h1 class="text-3xl font-bold mb-4">🏍️ 機車車位抽籤系統</h1>
+
+    <div class="flex gap-4 mb-4">
+      <button id="drawHouseholdBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded">
+        第一階段：抽出住戶
+      </button>
+      <button id="drawParkingBtn" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded">
+        第二階段：分配車位
+      </button>
+      <button id="resetAllBtn" class="bg-gray-500 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded">
+        🔄 清除歷史
+      </button>
     </div>
 
-    <div class="mb-6">
-      <h2 class="text-xl font-semibold mb-2">第一階段結果：住戶順序</h2>
-      <table class="table-auto w-full border border-gray-300 text-sm" id="householdTable">
-        <thead class="bg-gray-200">
-          <tr><th class="p-2 border">#</th><th class="p-2 border">住戶</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <div class="text-sm text-gray-700 mb-4">
+      剩餘住戶數：<span id="remainingHouseholds">198</span>，
+      剩餘車位數：<span id="remainingParking">202</span>
     </div>
 
-    <div>
-      <h2 class="text-xl font-semibold mb-2">第二階段結果：車位分配</h2>
-      <table class="table-auto w-full border border-gray-300 text-sm" id="assignmentTable">
-        <thead class="bg-gray-200">
-          <tr><th class="p-2 border">住戶</th><th class="p-2 border">車位號碼</th></tr>
-        </thead>
-        <tbody></tbody>
-      </table>
+    <div class="bg-white rounded shadow p-4 mb-4">
+      <h2 class="text-xl font-semibold mb-2">🎯 當前住戶</h2>
+      <div id="householdResult" class="text-blue-700 font-mono text-lg"></div>
+    </div>
+
+    <div class="bg-white rounded shadow p-4">
+      <h2 class="text-xl font-semibold mb-2">🅿️ 當前車位配對</h2>
+      <div id="parkingResult" class="text-green-700 font-mono text-lg"></div>
     </div>
   </div>
 
+  <!-- 右側：紀錄側欄 -->
+  <aside class="w-full lg:w-80 shrink-0">
+    <div class="bg-white rounded shadow p-4 mb-4 h-[300px] overflow-y-auto">
+      <h3 class="text-lg font-semibold mb-2">📋 住戶抽籤紀錄</h3>
+      <ul id="householdHistory" class="list-decimal list-inside text-sm text-gray-800 space-y-1"></ul>
+    </div>
+
+    <div class="bg-white rounded shadow p-4 h-[300px] overflow-y-auto">
+      <h3 class="text-lg font-semibold mb-2">📋 車位配對紀錄</h3>
+      <ul id="parkingHistory" class="list-disc list-inside text-sm text-gray-800 space-y-1"></ul>
+    </div>
+  </aside>
+
   <script>
-    const floorRange = Array.from({ length: 22 }, (_, i) => i + 2); // 2F to 23F
+    const floors = Array.from({ length: 22 }, (_, i) => i + 2);
     const units = ['A1','A2','A3','A5','A6','A7','A8','A9','A11'];
+    const allHouseholds = [];
+    floors.forEach(f => units.forEach(u => allHouseholds.push(`${u}-${f}F`)));
 
-    let allHouseholds = [];
-    let remainingHouseholds = [];
-    let shuffledSpots = [];
-    let currentDrawIndex = 0;
+    let householdPool = [...allHouseholds];
+    let parkingPool = Array.from({ length: 202 }, (_, i) => i + 1);
+    let drawnHouseholds = [];
+    let lastDrawnHousehold = null;
+    let awaitingParking = false;
 
-    function shuffle(array) {
-      return array.sort(() => Math.random() - 0.5);
+    const householdResult = document.getElementById("householdResult");
+    const parkingResult = document.getElementById("parkingResult");
+    const householdHistory = document.getElementById("householdHistory");
+    const parkingHistory = document.getElementById("parkingHistory");
+    const remainingHouseholds = document.getElementById("remainingHouseholds");
+    const remainingParking = document.getElementById("remainingParking");
+
+    function shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
     }
 
-    document.getElementById('drawOneHousehold').addEventListener('click', () => {
-      // 第一次點擊或重新抽籤，初始化資料
-      if (remainingHouseholds.length === 0) {
-        document.querySelector('#householdTable tbody').innerHTML = '';
-        document.querySelector('#assignmentTable tbody').innerHTML = '';
-        allHouseholds = [];
+    function updateCounters() {
+      remainingHouseholds.textContent = householdPool.length;
+      remainingParking.textContent = parkingPool.length;
+    }
 
-        floorRange.forEach(floor => {
-          units.forEach(unit => {
-            allHouseholds.push(`${unit}-${floor}F`);
-          });
-        });
-
-        remainingHouseholds = shuffle([...allHouseholds]);
-        shuffledSpots = shuffle(Array.from({ length: 202 }, (_, i) => i + 1));
-        currentDrawIndex = 0;
+    function drawHousehold() {
+      if (awaitingParking) {
+        alert(\"請先分配目前住戶的車位後才能再抽下一戶。👀\");
+        return;
       }
-
-      // 抽出一位住戶
-      if (remainingHouseholds.length > 0) {
-        const household = remainingHouseholds.shift();
-        const tbody = document.querySelector('#householdTable tbody');
-        const row = `<tr><td class="p-2 border text-center">${currentDrawIndex + 1}</td><td class="p-2 border text-center">${household}</td></tr>`;
-        tbody.insertAdjacentHTML('beforeend', row);
-        document.getElementById('assignOneSpot').disabled = false;
-        currentDrawIndex++;
+      if (householdPool.length === 0) {
+        alert(\"已抽完所有住戶！\");
+        return;
       }
-    });
+      shuffle(householdPool);
+      const household = householdPool.pop();
+      lastDrawnHousehold = household;
+      awaitingParking = true;
 
-    document.getElementById('assignOneSpot').addEventListener('click', () => {
-      const householdRows = document.querySelectorAll('#householdTable tbody tr');
-      if (householdRows.length === 0 || shuffledSpots.length === 0) return;
+      householdResult.textContent = `${drawnHouseholds.length + 1}. ${household}`;
+      const li = document.createElement(\"li\");
+      li.textContent = `${drawnHouseholds.length + 1}. ${household}`;
+      householdHistory.appendChild(li);
+    }
 
-      const lastHousehold = householdRows[householdRows.length - 1].children[1].textContent;
-      const spot = shuffledSpots.shift();
+    function drawParking() {
+      if (!lastDrawnHousehold) {
+        alert(\"請先抽住戶再配對車位！\");
+        return;
+      }
+      if (parkingPool.length === 0) {
+        alert(\"車位已用完！\");
+        return;
+      }
+      shuffle(parkingPool);
+      const parking = parkingPool.pop();
+      const resultText = `${lastDrawnHousehold} ➜ 車位 ${parking}`;
+      parkingResult.textContent = resultText;
 
-      const tbody = document.querySelector('#assignmentTable tbody');
-      const row = `<tr><td class="p-2 border text-center">${lastHousehold}</td><td class="p-2 border text-center">${spot}</td></tr>`;
-      tbody.insertAdjacentHTML('beforeend', row);
+      const li = document.createElement(\"li\");
+      li.textContent = resultText;
+      parkingHistory.appendChild(li);
 
-      document.getElementById('assignOneSpot').disabled = true;
-    });
+      drawnHouseholds.push(lastDrawnHousehold);
+      lastDrawnHousehold = null;
+      awaitingParking = false;
+      updateCounters();
+    }
+
+    function resetAll() {
+      if (!confirm(\"確定要清除所有抽籤紀錄並重新開始嗎？\")) return;
+
+      householdPool = [...allHouseholds];
+      parkingPool = Array.from({ length: 202 }, (_, i) => i + 1);
+      drawnHouseholds = [];
+      lastDrawnHousehold = null;
+      awaitingParking = false;
+
+      householdResult.textContent = \"\";
+      parkingResult.textContent = \"\";
+      householdHistory.innerHTML = \"\";
+      parkingHistory.innerHTML = \"\";
+      updateCounters();
+    }
+
+    document.getElementById(\"drawHouseholdBtn\").addEventListener(\"click\", drawHousehold);
+    document.getElementById(\"drawParkingBtn\").addEventListener(\"click\", drawParking);
+    document.getElementById(\"resetAllBtn\").addEventListener(\"click\", resetAll);
+
+    updateCounters();
   </script>
 </body>
 </html>
