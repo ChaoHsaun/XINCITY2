@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>機車車位抽籤</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen p-6">
+  <div class="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl p-8">
+    <h1 class="text-3xl font-bold text-center mb-6">🏍️ 機車車位抽籤系統</h1>
+
+    <div class="flex justify-center gap-4 mb-6">
+      <button id="drawOneHousehold" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-xl">第一階段：抽出一個住戶</button>
+      <button id="assignOneSpot" class="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-xl" disabled>第二階段：分配一個車位</button>
+    </div>
+
+    <div class="mb-6">
+      <h2 class="text-xl font-semibold mb-2">第一階段結果：住戶順序</h2>
+      <table class="table-auto w-full border border-gray-300 text-sm" id="householdTable">
+        <thead class="bg-gray-200">
+          <tr><th class="p-2 border">#</th><th class="p-2 border">住戶</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div>
+      <h2 class="text-xl font-semibold mb-2">第二階段結果：車位分配</h2>
+      <table class="table-auto w-full border border-gray-300 text-sm" id="assignmentTable">
+        <thead class="bg-gray-200">
+          <tr><th class="p-2 border">住戶</th><th class="p-2 border">車位號碼</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const floorRange = Array.from({ length: 22 }, (_, i) => i + 2); // 2F to 23F
+    const units = ['A1','A2','A3','A5','A6','A7','A8','A9','A11'];
+
+    let allHouseholds = [];
+    let remainingHouseholds = [];
+    let shuffledSpots = [];
+    let currentDrawIndex = 0;
+
+    function shuffle(array) {
+      return array.sort(() => Math.random() - 0.5);
+    }
+
+    document.getElementById('drawOneHousehold').addEventListener('click', () => {
+      // 第一次點擊或重新抽籤，初始化資料
+      if (remainingHouseholds.length === 0) {
+        document.querySelector('#householdTable tbody').innerHTML = '';
+        document.querySelector('#assignmentTable tbody').innerHTML = '';
+        allHouseholds = [];
+
+        floorRange.forEach(floor => {
+          units.forEach(unit => {
+            allHouseholds.push(`${unit}-${floor}F`);
+          });
+        });
+
+        remainingHouseholds = shuffle([...allHouseholds]);
+        shuffledSpots = shuffle(Array.from({ length: 202 }, (_, i) => i + 1));
+        currentDrawIndex = 0;
+      }
+
+      // 抽出一位住戶
+      if (remainingHouseholds.length > 0) {
+        const household = remainingHouseholds.shift();
+        const tbody = document.querySelector('#householdTable tbody');
+        const row = `<tr><td class="p-2 border text-center">${currentDrawIndex + 1}</td><td class="p-2 border text-center">${household}</td></tr>`;
+        tbody.insertAdjacentHTML('beforeend', row);
+        document.getElementById('assignOneSpot').disabled = false;
+        currentDrawIndex++;
+      }
+    });
+
+    document.getElementById('assignOneSpot').addEventListener('click', () => {
+      const householdRows = document.querySelectorAll('#householdTable tbody tr');
+      if (householdRows.length === 0 || shuffledSpots.length === 0) return;
+
+      const lastHousehold = householdRows[householdRows.length - 1].children[1].textContent;
+      const spot = shuffledSpots.shift();
+
+      const tbody = document.querySelector('#assignmentTable tbody');
+      const row = `<tr><td class="p-2 border text-center">${lastHousehold}</td><td class="p-2 border text-center">${spot}</td></tr>`;
+      tbody.insertAdjacentHTML('beforeend', row);
+
+      document.getElementById('assignOneSpot').disabled = true;
+    });
+  </script>
+</body>
+</html>
