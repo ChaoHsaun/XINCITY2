@@ -95,11 +95,11 @@ Last updated: July 30, 2025 00:12 AM
 
     function drawHousehold() {
       if (awaitingParking) {
-        alert(\"請先分配目前住戶的車位後才能再抽下一戶。👀\");
+        alert("請先分配目前住戶的車位後才能再抽下一戶。👀");
         return;
       }
       if (householdPool.length === 0) {
-        alert(\"已抽完所有住戶！\");
+        alert("已抽完所有住戶！");
         return;
       }
       shuffle(householdPool);
@@ -108,18 +108,18 @@ Last updated: July 30, 2025 00:12 AM
       awaitingParking = true;
 
       householdResult.textContent = `${drawnHouseholds.length + 1}. ${household}`;
-      const li = document.createElement(\"li\");
+      const li = document.createElement("li");
       li.textContent = `${drawnHouseholds.length + 1}. ${household}`;
       householdHistory.appendChild(li);
     }
 
     function drawParking() {
       if (!lastDrawnHousehold) {
-        alert(\"請先抽住戶再配對車位！\");
+        alert("請先抽住戶再配對車位！");
         return;
       }
       if (parkingPool.length === 0) {
-        alert(\"車位已用完！\");
+        alert("車位已用完！");
         return;
       }
       shuffle(parkingPool);
@@ -127,7 +127,7 @@ Last updated: July 30, 2025 00:12 AM
       const resultText = `${lastDrawnHousehold} ➜ 車位 ${parking}`;
       parkingResult.textContent = resultText;
 
-      const li = document.createElement(\"li\");
+      const li = document.createElement("li");
       li.textContent = resultText;
       parkingHistory.appendChild(li);
 
@@ -138,7 +138,7 @@ Last updated: July 30, 2025 00:12 AM
     }
 
     function resetAll() {
-      if (!confirm(\"確定要清除所有抽籤紀錄並重新開始嗎？\")) return;
+      if (!confirm("確定要清除所有抽籤紀錄並重新開始嗎？")) return;
 
       householdPool = [...allHouseholds];
       parkingPool = Array.from({ length: 202 }, (_, i) => i + 1);
@@ -146,18 +146,18 @@ Last updated: July 30, 2025 00:12 AM
       lastDrawnHousehold = null;
       awaitingParking = false;
 
-      householdResult.textContent = \"\";
-      parkingResult.textContent = \"\";
-      householdHistory.innerHTML = \"\";
-      parkingHistory.innerHTML = \"\";
+      householdResult.textContent = "";
+      parkingResult.textContent = "";
+      householdHistory.innerHTML = "";
+      parkingHistory.innerHTML = "";
       updateCounters();
     }
 
-    document.getElementById(\"drawHouseholdBtn\").addEventListener(\"click\", drawHousehold);
-    document.getElementById(\"drawParkingBtn\").addEventListener(\"click\", drawParking);
-    document.getElementById(\"resetAllBtn\").addEventListener(\"click\", resetAll);
+    document.getElementById("drawHouseholdBtn").addEventListener("click", drawHousehold);
+    document.getElementById("drawParkingBtn").addEventListener("click", drawParking);
+    document.getElementById("resetAllBtn").addEventListener("click", resetAll);
 
     updateCounters();
   </script>
- </body>
+</body>
 </html>
